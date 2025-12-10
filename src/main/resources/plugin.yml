@@ -1,0 +1,9 @@
+name: chess
+version: '1.0-SNAPSHOT'
+main: io.github.zeqky.chess.plugin.ChessPlugin
+api-version: '1.21'
+libraries:
+  - org.jetbrains.kotlin:kotlin-stdlib:2.2.0
+  - org.jetbrains.kotlin:kotlin-reflect:2.2.0
+  - org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3
+  - io.github.zeqky:fount-core:1.0.1
