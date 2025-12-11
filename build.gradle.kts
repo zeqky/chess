@@ -1,8 +1,5 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
 plugins {
     kotlin("jvm") version "2.3.0-RC"
-    id("com.gradleup.shadow") version "9.3.0"
     idea
 }
 
@@ -12,30 +9,17 @@ java {
     }
 }
 
-repositories {
-    mavenCentral()
-    maven("https://repo.papermc.io/repository/maven-public/")
+allprojects {
+    repositories {
+        mavenCentral()
+    }
 }
 
-dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
-    implementation("io.github.zeqky:fount-api:1.0.1")
+subprojects {
+    apply(plugin = "org.jetbrains.kotlin.jvm")
 
-    implementation(kotlin("stdlib"))
-    implementation(kotlin("reflect"))
-}
-
-tasks {
-    register<Jar>("paperJar") {
-        archiveVersion.set("")
-        archiveBaseName.set("Chess")
-        from(sourceSets["main"].output)
-        doLast {
-            val plugins = File(rootDir, ".server/plugins")
-            copy {
-                from(archiveFile)
-                into(plugins)
-            }
-        }
+    dependencies {
+        implementation(kotlin("stdlib"))
+        implementation(kotlin("reflect"))
     }
 }
