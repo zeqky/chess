@@ -2,6 +2,7 @@ package io.github.zeqky.chess.core
 
 class Board {
     val squares = arrayListOf<Square>()
+    val pieces = arrayListOf<Piece>()
     var startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     var placement = ""
     var side = ""
@@ -23,14 +24,13 @@ class Board {
     private fun setupPieces() {
         val ranks = placement.split("/")
         for ((rankIndex, rankString) in ranks.withIndex()) {
-            println(rankIndex)
             var file = 0
             for (ch in rankString) {
                 when {
                     ch.isDigit() -> file += ch.digitToInt()
                     else -> {
-                        val s = squares.first { it.y == 8 - rankIndex && it.x == file + 1 }
-                        s.pieceType = when (ch.lowercase()) {
+                        val square = squares.first { it.y == 8 - rankIndex && it.x == file + 1 }
+                        val pieceType = when (ch.lowercase()) {
                             "p" -> PieceType.PAWN
                             "r" -> PieceType.ROOK
                             "n" -> PieceType.KNIGHT
@@ -39,7 +39,9 @@ class Board {
                             "k" -> PieceType.KING
                             else -> PieceType.EMPTY
                         }
-                        s.isWhite = ch.isUpperCase()
+                        val isWhite = ch.isUpperCase()
+
+                        pieces += Piece(pieceType, isWhite, square)
                         file++
                     }
                 }
