@@ -42,6 +42,18 @@ object ChessKommand {
                             }
                         }
                     }
+
+                    then("move") {
+                        then("board" to boards) {
+                            then("moves" to string()) {
+                                executes {
+                                    val board: ChessBoard by it
+                                    val moves: String by it
+                                    board.board.inputMove(moves)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
