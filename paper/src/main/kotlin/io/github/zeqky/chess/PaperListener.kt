@@ -2,6 +2,7 @@ package io.github.zeqky.chess
 
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 
@@ -14,5 +15,11 @@ class PaperListener : Listener {
     @EventHandler
     fun onPlayerQuit(event: PlayerQuitEvent) {
         ChessManager.fakeEntityServer.removePlayer(event.player)
+    }
+
+    @EventHandler
+    fun onInteract(event: PlayerInteractEvent) {
+        val player = event.player
+
     }
 }

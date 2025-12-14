@@ -10,7 +10,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.ArmorStand
 
-class ChessPiece(private var loc: Location, private val piece: Piece) : CPiece() {
+class ChessPiece(var loc: Location, private val piece: Piece) : CPiece() {
     lateinit var fakeEntity: FakeEntity<ArmorStand>
     var currentSquare: Square = piece.square
     override fun spawn() {
