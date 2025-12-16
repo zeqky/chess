@@ -18,7 +18,7 @@ object ChessManager {
         fakeEntityServer = FakeEntityServer.create(plugin).apply {
             Bukkit.getOnlinePlayers().forEach { this.addPlayer(it) }
             plugin.server.pluginManager.registerEvents(PaperListener(), plugin)
-            plugin.server.scheduler.runTaskTimer(plugin, ::update, 0L, 1L)
+            plugin.server.scheduler.runTaskTimer(plugin, this@ChessManager::update, 0L, 1L)
         }
     }
 
@@ -27,10 +27,17 @@ object ChessManager {
             Board().apply {
                 setup()
             },
-            loc)
+            loc.toBlockLocation().add(0.5, 0.0, 0.5))
     }
 
     fun setupBoard(board: ChessBoard) {
         board.init()
+    }
+
+    private fun update() {
+        fakeEntityServer.update()
+        boards.forEach {
+            it.update()
+        }
     }
 }

@@ -191,7 +191,7 @@ class Board {
 
         val opponentHasMoves = pieces
             .filter { it.isWhite == opponentIsWhite }
-            .any { getAvailableSquares(it.pieceType, it.square, it.isWhite).any { target -> checkMoveValid("${it.square.x}${it.square.y}${target.x}${target.y}") } }
+            .any { getAvailableSquares(it.pieceType, it.square, it.isWhite).any { target -> checkMoveValid("${it.square.toPos()}${target.toPos()}") } }
 
         when {
             halfmoveClock.toInt() >= 100 -> cBoard.print("Draw by 50-move rule.")
@@ -297,7 +297,7 @@ class Board {
         return pieces.first { it.square.x == x && it.square.y == y }
     }
 
-    private fun getAvailableSquares(pieceType: PieceType, sq: Square, isWhite: Boolean): List<Square> {
+    fun getAvailableSquares(pieceType: PieceType, sq: Square, isWhite: Boolean): List<Square> {
         return when (pieceType) {
             PieceType.PAWN -> pawnMoves(sq, isWhite)
             PieceType.KING -> kingMoves(sq, isWhite)
