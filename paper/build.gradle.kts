@@ -1,11 +1,12 @@
 repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
+    mavenLocal()
 }
 
 dependencies {
     implementation(project(":core"))
     compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
-    implementation("io.github.zeqky:fount-api:1.0.1")
+    implementation("io.github.zeqky:fount-api:2.0.1")
     implementation("io.github.monun:invfx-api:3.3.2")
     implementation("io.github.monun:heartbeat-coroutines:0.0.5")
 

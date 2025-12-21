@@ -26,10 +26,15 @@ object StockfishDownloader {
         }
 
         plugin.logger.info("⏳ Extracting Stockfish ...")
-        val extracted = unzipStockfish(zipFile, folder, true)
-        plugin.logger.info("✔ Extracted: ${extracted.path}")
+        val file = File(folder, "stockfish.exe")
+        if (file.exists()) {
+            return file
+        } else {
+            val extracted = unzipStockfish(zipFile, folder, true)
+            plugin.logger.info("✔ Extracted: ${extracted.path}")
 
-        return extracted
+            return extracted
+        }
     }
 
     private fun downloadFile(url: String, file: File) {

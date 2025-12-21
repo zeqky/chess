@@ -1,15 +1,16 @@
 package io.github.zeqky.chess
 
 import io.github.zeqky.chess.core.Board
+import io.github.zeqky.chess.core.GameCommand
 import io.github.zeqky.chess.core.Piece
 import io.github.zeqky.chess.core.Square
-import io.github.zeqky.chess.core.api.CBoard
+import io.github.zeqky.fount.fake.FakeEntity
 import net.kyori.adventure.text.Component.text
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Particle
 
-class ChessBoard(val name: String, val board: Board, val a1: Location) : CBoard() {
+class ChessBoard(val name: String, val board: Board, val a1: Location) {
     var selectedPiece: ChessPiece? = null
 
     fun init() {
@@ -19,11 +20,11 @@ class ChessBoard(val name: String, val board: Board, val a1: Location) : CBoard(
         }
     }
 
-    override fun print(string: String) {
+    fun print(string: String) {
         Bukkit.broadcast(text(string))
     }
 
-    override fun spawn(piece: Piece) {
+    fun spawn(piece: Piece) {
         board.pieces.add(piece)
         piece.attach(ChessPiece(this, piece).apply { spawn() })
     }
@@ -39,8 +40,14 @@ class ChessBoard(val name: String, val board: Board, val a1: Location) : CBoard(
 
     fun getPiece(square: Square): ChessPiece? {
         return if (board.pieces.any { it.square.x == square.x && it.square.y == square.y }) {
-            board.pieces.first { it.square.x == square.x && it.square.y == square.y }.cPiece as ChessPiece
+            board.pieces.first { it.square.x == square.x && it.square.y == square.y }.attachment() as ChessPiece
         } else null
+    }
+
+    fun getPieceByFake(entity: FakeEntity<*>): ChessPiece? {
+        val loc = entity.location.clone().subtract(a1).add(1.0, 0.0, 1.0)
+        val square = Square(loc.x.toInt(), loc.z.toInt())
+        return getPiece(square)
     }
 
     private fun registerSelected(piece: ChessPiece) {
@@ -55,7 +62,7 @@ class ChessBoard(val name: String, val board: Board, val a1: Location) : CBoard(
         }
         val previousSq = selectedPiece!!.currentSquare.toPos()
         val nextSq = square.toPos()
-        board.inputMove("$previousSq$nextSq")
+        board.game?.send(GameCommand.PieceMove("$previousSq$nextSq"))
         selectedPiece = null
     }
 

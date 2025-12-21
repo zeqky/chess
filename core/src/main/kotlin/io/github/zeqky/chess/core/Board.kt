@@ -1,8 +1,14 @@
 package io.github.zeqky.chess.core
 
-import io.github.zeqky.chess.core.api.CBoard
+import io.github.zeqky.chess.core.event.GameEventAdapter
+import io.github.zeqky.chess.core.event.PieceDespawnEvent
+import io.github.zeqky.chess.core.event.PieceSpawnEvent
+import io.github.zeqky.chess.core.exception.CheckMateException
+import io.github.zeqky.chess.core.exception.FiftyMoveException
+import io.github.zeqky.chess.core.exception.StaleMateException
+import io.github.zeqky.chess.core.exception.ThreefoldException
 
-class Board {
+class Board : Attachable() {
     val squares = arrayListOf<Square>()
     val pieces = arrayListOf<Piece>()
     var startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -14,12 +20,13 @@ class Board {
 
     var enPassantSquare: Square? = null
     var enPassantPawn: Piece? = null
+    val undoStack = ArrayDeque<MoveState>()
+    val redoStack = ArrayDeque<MoveState>()
+    val positionCount = HashMap<String, Int>()
 
-    lateinit var cBoard: CBoard
+    lateinit var eventAdapter: GameEventAdapter
 
-    fun attach(cb: CBoard) {
-        cBoard = cb
-    }
+    var game: Game? = null
 
     fun setup() {
         for (x in 1..8) {
@@ -27,6 +34,7 @@ class Board {
                 squares += Square(x, y)
             }
         }
+        eventAdapter = GameEventAdapter()
         loadFen(startFen)
     }
 
@@ -49,21 +57,11 @@ class Board {
                             else -> PieceType.EMPTY
                         }
                         val isWhite = ch.isUpperCase()
-                        pieces += Piece(pieceType, isWhite, square)
+                        pieces += Piece(this, pieceType, isWhite, square)
                         file++
                     }
                 }
             }
-        }
-    }
-
-    fun showupBoard() {
-        for (y in 8 downTo 1) {
-            val line = StringBuilder()
-            for (x in 1..8) {
-                line.append(if (getPiece(x, y) != null) "p " else "n ")
-            }
-            cBoard.print(line.toString())
         }
     }
 
@@ -79,7 +77,7 @@ class Board {
         setupPieces()
     }
 
-    fun reset() {
+    suspend fun reset() {
         startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         placement = ""
         castlingRights = ""
@@ -89,12 +87,12 @@ class Board {
         enPassantSquare = null
         enPassantPawn = null
         pieces.forEach {
-            it.cPiece.despawn()
+            eventAdapter.call(PieceDespawnEvent(it))
             pieces.remove(it)
         }
     }
 
-    fun inputMove(move: String) {
+    suspend fun inputMove(move: String) {
         if (!checkMoveValid(move)) return
 
         val from = parseSquare(move[0], move[1])
@@ -103,106 +101,197 @@ class Board {
         val piece = getPiece(from.x, from.y) ?: return
         if (isWhiteTurn != piece.isWhite) return
 
+        /* =========================
+           캡처 / 엔패상 판별
+           ========================= */
+
         var captureOrPawnMove = false
+        var wasEnPassant = false
 
-        // 캐슬링 처리
-        if (
-            piece.pieceType == PieceType.KING &&
-            kotlin.math.abs(to.x - from.x) == 2
-        ) {
-            val info = when {
-                piece.isWhite && to.x == 7 -> whiteKingSide
-                piece.isWhite && to.x == 3 -> whiteQueenSide
-                !piece.isWhite && to.x == 7 -> blackKingSide
-                else -> blackQueenSide
-            }
+        val capturedPiece: Piece?
+        val capturedSquare: Square?
 
-            val rook = getPiece(info.rookFrom.x, info.rookFrom.y)
-            if (rook != null) movePiece(info.rookTo, rook)
-            castlingRights = castlingRights.replace(info.right.toString(), "")
-        }
-
-        // 킹, 룩 이동 시 캐슬링 권리 제거
-        if (piece.pieceType == PieceType.KING) {
-            castlingRights = if (piece.isWhite) {
-                castlingRights.replace("K", "").replace("Q", "")
-            } else {
-                castlingRights.replace("k", "").replace("q", "")
-            }
-        }
-
-        if (piece.pieceType == PieceType.ROOK) {
-            when (from.x to from.y) {
-                1 to 1 -> castlingRights = castlingRights.replace("Q", "")
-                8 to 1 -> castlingRights = castlingRights.replace("K", "")
-                1 to 8 -> castlingRights = castlingRights.replace("q", "")
-                8 to 8 -> castlingRights = castlingRights.replace("k", "")
-            }
-        }
-
-        // 엔패상 및 캡처 처리
         if (
             piece.pieceType == PieceType.PAWN &&
             enPassantSquare != null &&
             to.x == enPassantSquare!!.x &&
             to.y == enPassantSquare!!.y
         ) {
-            enPassantPawn?.let { removePiece(it.square) }
+            capturedSquare = Square(to.x, from.y)
+            capturedPiece = getPiece(capturedSquare.x, capturedSquare.y)
+            wasEnPassant = true
             captureOrPawnMove = true
-        } else if (getPiece(to.x, to.y) != null) {
-            removePiece(to)
-            captureOrPawnMove = true
+        } else {
+            capturedSquare = to
+            capturedPiece = getPiece(to.x, to.y)
+            if (capturedPiece != null) captureOrPawnMove = true
+        }
+
+        /* =========================
+           캐슬링 판별
+           ========================= */
+
+        val isCastle =
+            piece.pieceType == PieceType.KING &&
+                    kotlin.math.abs(to.x - from.x) == 2
+
+        var rook: Piece? = null
+        var rookFrom: Square? = null
+        var rookTo: Square? = null
+
+        if (isCastle) {
+            val info = when {
+                piece.isWhite && to.x == 7 -> whiteKingSide
+                piece.isWhite && to.x == 3 -> whiteQueenSide
+                !piece.isWhite && to.x == 7 -> blackKingSide
+                else -> blackQueenSide
+            }
+            rook = getPiece(info.rookFrom.x, info.rookFrom.y)
+            rookFrom = info.rookFrom
+            rookTo = info.rookTo
+        }
+
+        /* =========================
+           🔥 backup 생성 (모든 상태)
+           ========================= */
+
+        val backup = MoveState(
+            move = move,
+            from = from,
+            to = to,
+            movedPiece = piece,
+
+            capturedPiece = capturedPiece,
+            capturedSquare = capturedSquare,
+
+            wasEnPassant = wasEnPassant,
+
+            wasCastle = isCastle,
+            rook = rook,
+            rookFrom = rookFrom,
+            rookTo = rookTo,
+
+            previousCastlingRights = castlingRights,
+            previousEnPassantSquare = enPassantSquare,
+            previousEnPassantPawn = enPassantPawn,
+            previousHalfmoveClock = halfmoveClock,
+            previousFullmoveNumber = fullmoveNumber,
+            previousTurn = isWhiteTurn,
+
+            promotedFrom = null
+        )
+
+        /* =========================
+           실제 이동 처리
+           ========================= */
+
+        if (isCastle && rook != null) {
+            movePiece(rookTo!!, rook)
+        }
+
+        capturedPiece?.let {
+            removePiece(capturedSquare)
         }
 
         movePiece(to, piece)
 
-        // 프로모션 체크
+        /* =========================
+           프로모션
+           ========================= */
+
         if (piece.pieceType == PieceType.PAWN) {
             val promotionRank = if (piece.isWhite) 8 else 1
             if (to.y == promotionRank) {
+                backup.copy(promotedFrom = PieceType.PAWN)
                 handlePromotion(piece)
             }
             captureOrPawnMove = true
         }
 
-        // halfmoveClock 업데이트 (50수 규칙)
-        halfmoveClock = if (captureOrPawnMove) "0" else (halfmoveClock.toInt() + 1).toString()
+        /* =========================
+           halfmove / fullmove
+           ========================= */
 
-        // fullmoveNumber 업데이트
+        halfmoveClock =
+            if (captureOrPawnMove) "0"
+            else (halfmoveClock.toInt() + 1).toString()
+
         if (!isWhiteTurn) {
             fullmoveNumber = (fullmoveNumber.toInt() + 1).toString()
         }
 
-        // 엔패상 상태 업데이트
+        /* =========================
+           엔패상 상태 갱신
+           ========================= */
+
         enPassantSquare = null
         enPassantPawn = null
-        if (piece.pieceType == PieceType.PAWN && kotlin.math.abs(to.y - from.y) == 2) {
+        if (piece.pieceType == PieceType.PAWN &&
+            kotlin.math.abs(to.y - from.y) == 2
+        ) {
             val passedY = (to.y + from.y) / 2
             enPassantSquare = Square(from.x, passedY)
             enPassantPawn = piece
         }
 
+        /* =========================
+           턴 전환
+           ========================= */
+
         isWhiteTurn = !isWhiteTurn
 
-        // 체크/체크메이트/스테일메이트 확인
+        /* =========================
+           3회 반복 카운트
+           ========================= */
+        updatePlacement()
+
+        val key = positionKey()
+        positionCount[key] = (positionCount[key] ?: 0) + 1
+
+        if (positionCount[key] == 3) {
+            throw ThreefoldException()
+        }
+
+        /* =========================
+           체크 / 메이트 / 스테일
+           ========================= */
+
         val opponentIsWhite = isWhiteTurn
         val opponentKingSquare = findKing(opponentIsWhite)
-        val opponentInCheck = isSquareAttacked(opponentKingSquare, !opponentIsWhite)
+        val opponentInCheck =
+            isSquareAttacked(opponentKingSquare, !opponentIsWhite)
 
         val opponentHasMoves = pieces
             .filter { it.isWhite == opponentIsWhite }
-            .any { getAvailableSquares(it.pieceType, it.square, it.isWhite).any { target -> checkMoveValid("${it.square.toPos()}${target.toPos()}") } }
+            .any { p ->
+                getAvailableSquares(p.pieceType, p.square, p.isWhite)
+                    .any { target ->
+                        checkMoveValid("${p.square.toPos()}${target.toPos()}")
+                    }
+            }
 
         when {
-            halfmoveClock.toInt() >= 100 -> cBoard.print("Draw by 50-move rule.")
-            opponentInCheck && !opponentHasMoves -> cBoard.print("Checkmate! ${if (opponentIsWhite) "Black" else "White"} wins.")
-            !opponentInCheck && !opponentHasMoves -> cBoard.print("Stalemate! Draw.")
-            opponentInCheck -> cBoard.print("Check!")
+            halfmoveClock.toInt() >= 100 ->
+                throw FiftyMoveException()
+            opponentInCheck && !opponentHasMoves ->
+                throw CheckMateException(!opponentIsWhite)
+            !opponentInCheck && !opponentHasMoves ->
+                throw StaleMateException()
+            opponentInCheck ->
+                print("Check!")
         }
+
+        /* =========================
+           undo / redo 스택
+           ========================= */
+
+        undoStack.addLast(backup)
+        redoStack.clear()
     }
 
 
-    fun removePiece(target: Square) {
+
+    suspend fun removePiece(target: Square) {
         val piece = pieces.firstOrNull {
             it.square.x == target.x && it.square.y == target.y
         } ?: return
@@ -216,11 +305,11 @@ class Board {
             }
         }
 
-        piece.cPiece.despawn()
+        eventAdapter.call(PieceDespawnEvent(piece))
         pieces.remove(piece)
     }
 
-    fun movePiece(to: Square, piece: Piece) {
+    suspend fun movePiece(to: Square, piece: Piece) {
         piece.moveTo(to)
     }
 
@@ -517,15 +606,120 @@ class Board {
         moves += info.kingTo
     }
 
-    fun handlePromotion(pawn: Piece, promotedType: PieceType = PieceType.QUEEN) {
+    suspend fun handlePromotion(pawn: Piece, promotedType: PieceType = PieceType.QUEEN) {
         require(promotedType in listOf(PieceType.ROOK, PieceType.BISHOP, PieceType.KNIGHT, PieceType.QUEEN)) {
-            cBoard.print("PromotedType cannot be $promotedType")
+            print("PromotedType cannot be $promotedType")
         }
 
         pieces.remove(pawn)
-        pawn.cPiece.despawn()
+        eventAdapter.call(PieceDespawnEvent(pawn))
 
-        val newPiece = Piece(promotedType, pawn.isWhite, pawn.square)
-        cBoard.spawn(newPiece)
+        val newPiece = Piece(this, promotedType, pawn.isWhite, pawn.square)
+        eventAdapter.call(PieceSpawnEvent(newPiece))
     }
+
+    suspend fun undo() {
+        if (undoStack.isEmpty()) return
+
+        /* =========================
+           1️⃣ 현재 포지션 카운트 감소
+           ========================= */
+
+        updatePlacement()
+        val currentKey = positionKey()
+        positionCount[currentKey]?.let {
+            if (it <= 1) positionCount.remove(currentKey)
+            else positionCount[currentKey] = it - 1
+        }
+
+        /* =========================
+           2️⃣ move 상태 복구
+           ========================= */
+
+        val m = undoStack.removeLast()
+        redoStack.addLast(m)
+
+        isWhiteTurn = m.previousTurn
+        castlingRights = m.previousCastlingRights
+        enPassantSquare = m.previousEnPassantSquare
+        enPassantPawn = m.previousEnPassantPawn
+        halfmoveClock = m.previousHalfmoveClock
+        fullmoveNumber = m.previousFullmoveNumber
+
+        // 프로모션 복구
+        if (m.promotedFrom != null) {
+            removePiece(m.to)
+            val pawn = Piece(this, PieceType.PAWN, m.movedPiece.isWhite, m.to)
+            pieces.add(pawn)
+            eventAdapter.call(PieceSpawnEvent(pawn))
+        }
+
+        // 말 원위치
+        m.movedPiece.moveTo(m.from)
+
+        // 캐슬링 복구
+        if (m.wasCastle && m.rook != null && m.rookFrom != null) {
+            m.rook.moveTo(m.rookFrom)
+        }
+
+        // 캡처 복구
+        m.capturedPiece?.let {
+            pieces.add(it)
+            eventAdapter.call(PieceSpawnEvent(it))
+        }
+
+        /* =========================
+           3️⃣ placement 갱신 (선택)
+           ========================= */
+
+        updatePlacement()
+    }
+
+
+    suspend fun redo() {
+        if (redoStack.isEmpty()) return
+
+        val m = redoStack.removeLast()
+        undoStack.addLast(m)
+
+        inputMove(m.move)
+    }
+
+    private fun positionKey(): String {
+        val ep = enPassantSquare?.toPos() ?: "-"
+        return "$placement ${if (isWhiteTurn) "w" else "b"} $castlingRights $ep"
+    }
+
+    private fun updatePlacement() {
+        val ranks = (8 downTo 1).joinToString("/") { y ->
+            var empty = 0
+            val sb = StringBuilder()
+
+            for (x in 1..8) {
+                val p = getPiece(x, y)
+                if (p == null) {
+                    empty++
+                } else {
+                    if (empty > 0) {
+                        sb.append(empty)
+                        empty = 0
+                    }
+                    val ch = when (p.pieceType) {
+                        PieceType.PAWN -> 'p'
+                        PieceType.ROOK -> 'r'
+                        PieceType.KNIGHT -> 'n'
+                        PieceType.BISHOP -> 'b'
+                        PieceType.QUEEN -> 'q'
+                        PieceType.KING -> 'k'
+                        else -> '?'
+                    }
+                    sb.append(if (p.isWhite) ch.uppercaseChar() else ch)
+                }
+            }
+            if (empty > 0) sb.append(empty)
+            sb.toString()
+        }
+        placement = ranks
+    }
+
 }

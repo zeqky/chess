@@ -2,7 +2,6 @@ package io.github.zeqky.chess
 
 import io.github.zeqky.chess.core.Piece
 import io.github.zeqky.chess.core.Square
-import io.github.zeqky.chess.core.api.CPiece
 import io.github.zeqky.fount.fake.FakeEntity
 import net.kyori.adventure.text.Component.text
 import net.kyori.adventure.text.format.NamedTextColor
@@ -10,14 +9,14 @@ import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.ArmorStand
 
-class ChessPiece(board: ChessBoard, val piece: Piece) : CPiece() {
+class ChessPiece(board: ChessBoard, val piece: Piece) {
 
     var loc: Location = board.a1.clone().add(piece.square.y - 1.0, 0.0, piece.square.x - 1.0)
         get() = field.clone()
 
     lateinit var fakeEntity: FakeEntity<ArmorStand>
     var currentSquare: Square = piece.square
-    override fun spawn() {
+    fun spawn() {
         fakeEntity = ChessManager.fakeEntityServer.spawnEntity(loc, ArmorStand::class.java).apply {
             updateMetadata {
                 customName(text(piece.pieceType.toString()).color(if (piece.isWhite) NamedTextColor.WHITE else NamedTextColor.BLACK))
@@ -26,7 +25,7 @@ class ChessPiece(board: ChessBoard, val piece: Piece) : CPiece() {
         }
     }
 
-    override fun moveTo(square: Square) {
+    fun moveTo(square: Square) {
         val dx = square.x - currentSquare.x
         val dy = square.y - currentSquare.y
         currentSquare = square
@@ -34,7 +33,7 @@ class ChessPiece(board: ChessBoard, val piece: Piece) : CPiece() {
         loc = fakeEntity.location
     }
 
-    override fun despawn() {
+    fun despawn() {
         fakeEntity.remove()
     }
 }

@@ -1,19 +1,13 @@
 package io.github.zeqky.chess.core
 
-import io.github.zeqky.chess.core.api.CPiece
+import io.github.zeqky.chess.core.event.PieceMoveEvent
 
-class Piece(val pieceType: PieceType, val isWhite: Boolean, square: Square) {
+class Piece(val board: Board, val pieceType: PieceType, val isWhite: Boolean, square: Square): Attachable() {
     var square: Square = square
         internal set
-    lateinit var cPiece: CPiece
-        private set
 
-    fun moveTo(nextSquare: Square) {
+    suspend fun moveTo(nextSquare: Square) {
         square = nextSquare
-        cPiece.moveTo(nextSquare)
-    }
-
-    fun attach(cPiece: CPiece) {
-        this.cPiece = cPiece
+        board.eventAdapter.call(PieceMoveEvent(this, nextSquare))
     }
 }

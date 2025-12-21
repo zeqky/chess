@@ -6,6 +6,7 @@ libraries:
   - org.jetbrains.kotlin:kotlin-stdlib:2.2.0
   - org.jetbrains.kotlin:kotlin-reflect:2.2.0
   - org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3
-  - io.github.zeqky:fount-core:1.0.1
+  - io.github.zeqky:fount-core:2.0.1
+  - io.github.zeqky:fount-api:2.0.1
   - io.github.monun:heartbeat-coroutines:0.0.5
   - io.github.monun:invfx-core:3.3.2
