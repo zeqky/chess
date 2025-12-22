@@ -22,12 +22,26 @@ object ChessManager {
         }
     }
 
-    fun createBoard(name: String, loc: Location) {
-        boards += ChessBoard(name,
+    fun createBoard(name: String, loc: Location): ChessBoard {
+        require(!boards.any { it.name == name }) {
+            "Board $name already exist!"
+        }
+
+        return ChessBoard(name,
             Board().apply {
                 setup()
             },
-            loc.toBlockLocation().add(0.5, 0.0, 0.5))
+            loc.toBlockLocation().add(0.5, 0.0, 0.5)).apply {
+                boards.add(this)
+            }
+    }
+
+    fun resetBoard(name: String) {
+        val board = boards.first { it.name == name }.apply {
+            boards.remove(this)
+            removeAll()
+        }
+        createBoard(name, board.a1)
     }
 
     fun setupBoard(board: ChessBoard) {

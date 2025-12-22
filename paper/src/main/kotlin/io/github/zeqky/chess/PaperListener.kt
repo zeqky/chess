@@ -30,7 +30,7 @@ class PaperListener : Listener {
         event.isCancelled = true
 
         ChessManager.boards.forEach {
-            if (it.selectedPiece != null) {
+            if (it.selectedPiece != null && it.currentPlayer?.bukkitPlayer == event.player) {
                 val pos = it.findSquare(block.location)
                 it.onClick(pos)
             }
@@ -41,6 +41,7 @@ class PaperListener : Listener {
     fun onInteractPiece(event: PlayerInteractFakeEntityEvent) {
         if (event.hand != EquipmentSlot.HAND) return
         ChessManager.boards.forEach {
+            if (it.currentPlayer?.bukkitPlayer != event.player) return
             it.selectedPiece = null
             it.onClick(it.findSquare(event.fakeEntity.location))
         }

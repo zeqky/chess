@@ -2,6 +2,7 @@ package io.github.zeqky.chess
 
 import io.github.zeqky.chess.core.Board
 import io.github.zeqky.chess.core.GameCommand
+import io.github.zeqky.chess.core.GameState
 import io.github.zeqky.chess.core.Piece
 import io.github.zeqky.chess.core.Square
 import io.github.zeqky.fount.fake.FakeEntity
@@ -9,15 +10,37 @@ import net.kyori.adventure.text.Component.text
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Particle
+import org.bukkit.entity.Player
 
 class ChessBoard(val name: String, val board: Board, val a1: Location) {
     var selectedPiece: ChessPiece? = null
+    var white: ChessPlayer? = null
+    var black: ChessPlayer? = null
+
+    val currentPlayer
+        get() = if (board.isWhiteTurn) white else black
 
     fun init() {
         board.attach(this)
         board.pieces.forEach {
             it.attach(ChessPiece(this, it).apply { spawn() })
         }
+    }
+
+    fun setWhite(player: Player) {
+        white = ChessPlayer(true, isAI = false).apply { bukkitPlayer = player }
+    }
+
+    fun setBlack(player: Player) {
+        black = ChessPlayer(false, isAI = false).apply { bukkitPlayer = player }
+    }
+
+    fun setWhiteAI() {
+        white = ChessPlayer(true, isAI = true)
+    }
+
+    fun setBlackAI() {
+        black = ChessPlayer(false, isAI = true)
     }
 
     fun print(string: String) {
@@ -30,9 +53,12 @@ class ChessBoard(val name: String, val board: Board, val a1: Location) {
     }
 
     fun onClick(square: Square) {
+        if (board.game?.gameState != GameState.ACTIVE) return
+
         if (selectedPiece == null) {
             val piece = getPiece(square)
             if (piece != null) {
+                if (piece.piece.isWhite != currentPlayer?.isWhite) return
                 registerSelected(piece)
             }
         } else input(square)
@@ -48,6 +74,12 @@ class ChessBoard(val name: String, val board: Board, val a1: Location) {
         val loc = entity.location.clone().subtract(a1).add(1.0, 0.0, 1.0)
         val square = Square(loc.x.toInt(), loc.z.toInt())
         return getPiece(square)
+    }
+
+    fun removeAll() {
+        board.pieces.forEach {
+            it.attachment<ChessPiece>().fakeEntity.remove()
+        }
     }
 
     private fun registerSelected(piece: ChessPiece) {

@@ -65,7 +65,7 @@ object ChessKommand {
                     then("reset", "board" to boards) {
                         executes {
                             val board: ChessBoard by it
-                            board.board.game?.send(GameCommand.Reset)
+                            ChessManager.resetBoard(board.name)
                         }
                     }
 
@@ -78,7 +78,7 @@ object ChessKommand {
                             val white: Player by it
                             val black: Player by it
                             ChessManager.setupBoard(board)
-                            start(board.board)
+                            start(board.board, white, black)
                         }
 
                         then("tc" to string()) {
@@ -92,7 +92,11 @@ object ChessKommand {
         }
     }
 
-    private fun start(board: Board) {
+    private fun start(board: Board, white: Player, black: Player) {
+        board.attachment<ChessBoard>().apply {
+            setWhite(white)
+            setBlack(black)
+        }
         ChessProcess().start(board)
     }
 }

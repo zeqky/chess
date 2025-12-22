@@ -9,7 +9,9 @@ class ChessProcess {
         private set
 
     lateinit var eventListener: GameEventListener
+
     private val scope = HeartbeatScope()
+
 
     fun start(board: Board) {
         game = Game(board)
