@@ -6,6 +6,7 @@ repositories {
 dependencies {
     implementation(project(":core"))
     compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
+    compileOnly("net.dmulloy2:ProtocolLib:5.4.0")
     implementation("io.github.zeqky:fount-api:2.0.1")
     implementation("io.github.monun:invfx-api:3.3.2")
     implementation("io.github.monun:heartbeat-coroutines:0.0.5")

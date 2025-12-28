@@ -2,6 +2,7 @@ name: chess
 version: '1.0-SNAPSHOT'
 main: io.github.zeqky.chess.plugin.ChessPlugin
 api-version: '1.21'
+depend: [ ProtocolLib ]
 libraries:
   - org.jetbrains.kotlin:kotlin-stdlib:2.2.0
   - org.jetbrains.kotlin:kotlin-reflect:2.2.0

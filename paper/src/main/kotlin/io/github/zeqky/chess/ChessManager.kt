@@ -10,16 +10,12 @@ import org.bukkit.Location
 object ChessManager {
     lateinit var stockfish: StockfishProcess// 싱글톤
     val boards = arrayListOf<ChessBoard>()
-    lateinit var fakeEntityServer: FakeEntityServer
     lateinit var plugin: ChessPlugin
 
     fun init(plugin: ChessPlugin) {
         this.plugin = plugin
-        fakeEntityServer = FakeEntityServer.create(plugin).apply {
-            Bukkit.getOnlinePlayers().forEach { this.addPlayer(it) }
-            plugin.server.pluginManager.registerEvents(PaperListener(), plugin)
-            plugin.server.scheduler.runTaskTimer(plugin, this@ChessManager::update, 0L, 1L)
-        }
+        Bukkit.getPluginManager().registerEvents(PaperListener(), plugin)
+        Bukkit.getScheduler().runTaskTimer(plugin, ::update, 0L, 1L)
     }
 
     fun createBoard(name: String, loc: Location): ChessBoard {
@@ -33,7 +29,9 @@ object ChessManager {
             },
             loc.toBlockLocation().add(0.5, 0.0, 0.5)).apply {
                 boards.add(this)
-            }
+            }.apply {
+                init()
+        }
     }
 
     fun resetBoard(name: String) {
@@ -44,12 +42,11 @@ object ChessManager {
         createBoard(name, board.a1)
     }
 
-    fun setupBoard(board: ChessBoard) {
-        board.init()
+    fun start(board: ChessBoard, tc: String) {
+        ChessProcess(plugin).start(board.board, tc)
     }
 
     private fun update() {
-        fakeEntityServer.update()
         boards.forEach {
             it.update()
         }

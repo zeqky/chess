@@ -86,9 +86,9 @@ class Board : Attachable() {
         isWhiteTurn = true
         enPassantSquare = null
         enPassantPawn = null
-        pieces.forEach {
-            eventAdapter.call(PieceDespawnEvent(it))
-            pieces.remove(it)
+        for (p in pieces) {
+            eventAdapter.call(PieceDespawnEvent(p))
+            pieces.remove(p)
         }
     }
 

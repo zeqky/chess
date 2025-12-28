@@ -52,6 +52,7 @@ DEBUG_PORT=5005
 DEFAULT_PLUGINS=(
    'https://github.com/monun/auto-reloader/releases/download/0.0.6/auto-reloader-0.0.6.jar'
    'https://github.com/zeqky/libfetch/releases/download/1%2C0/libfetch.jar'
+   'https://github.com/dmulloy2/ProtocolLib/releases/download/5.4.0/ProtocolLib.jar'
 )
 
 # Uncomment to enable OpenJ9 performance tuning for VMs

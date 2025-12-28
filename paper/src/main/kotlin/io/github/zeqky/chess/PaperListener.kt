@@ -1,6 +1,7 @@
 package io.github.zeqky.chess
 
 import io.github.zeqky.fount.fake.PlayerInteractFakeEntityEvent
+import org.bukkit.Bukkit
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
@@ -10,15 +11,6 @@ import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.inventory.EquipmentSlot
 
 class PaperListener : Listener {
-    @EventHandler
-    fun onPlayerJoin(event: PlayerJoinEvent) {
-        ChessManager.fakeEntityServer.addPlayer(event.player)
-    }
-
-    @EventHandler
-    fun onPlayerQuit(event: PlayerQuitEvent) {
-        ChessManager.fakeEntityServer.removePlayer(event.player)
-    }
 
     @EventHandler
     fun onInteract(event: PlayerInteractEvent) {
@@ -42,8 +34,13 @@ class PaperListener : Listener {
         if (event.hand != EquipmentSlot.HAND) return
         ChessManager.boards.forEach {
             if (it.currentPlayer?.bukkitPlayer != event.player) return
-            it.selectedPiece = null
-            it.onClick(it.findSquare(event.fakeEntity.location))
+            val piece = it.getPieceByFake(event.fakeEntity)
+            if (piece != null) {
+                if (it.currentPlayer?.isWhite == piece.piece.isWhite && !event.isAttack) {
+                    it.selectedPiece = null
+                }
+                it.onClick(it.findSquare(event.fakeEntity.location))
+            }
         }
     }
 }

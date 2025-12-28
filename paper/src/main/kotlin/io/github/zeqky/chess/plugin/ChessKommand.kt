@@ -77,14 +77,47 @@ object ChessKommand {
                             val board: ChessBoard by it
                             val white: Player by it
                             val black: Player by it
-                            ChessManager.setupBoard(board)
-                            start(board.board, white, black)
+                            start(board, white, black)
                         }
 
                         then("tc" to string()) {
                             executes {
-
+                                val board: ChessBoard by it
+                                val white: Player by it
+                                val black: Player by it
+                                val tc: String by it
+                                start(board, white, black, tc)
                             }
+                        }
+                    }
+
+                    then("fakeUndo", "board" to boards) {
+                        requires {
+                            sender is Player
+                        }
+                        executes {
+                            val board: ChessBoard by it
+                            board.board.game?.send(GameCommand.FakeUndo((sender as Player).uniqueId))
+                        }
+                    }
+
+                    then("fakeRedo", "board" to boards) {
+                        requires {
+                            sender is Player
+                        }
+                        executes {
+                            val board: ChessBoard by it
+                            board.board.game?.send(GameCommand.FakeRedo((sender as Player).uniqueId))
+                        }
+                    }
+
+                    then("fakeReset", "board" to boards) {
+                        requires {
+                            sender is Player
+                        }
+                        executes {
+                            val board: ChessBoard by it
+                            board.board.game?.send(GameCommand.FakeReset((sender as Player).uniqueId))
                         }
                     }
                 }
@@ -92,11 +125,11 @@ object ChessKommand {
         }
     }
 
-    private fun start(board: Board, white: Player, black: Player) {
-        board.attachment<ChessBoard>().apply {
+    private fun start(board: ChessBoard, white: Player, black: Player, tc: String = "10") {
+        board.apply {
             setWhite(white)
             setBlack(black)
         }
-        ChessProcess().start(board)
+        ChessManager.start(board, tc)
     }
 }
